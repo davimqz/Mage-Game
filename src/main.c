@@ -9,7 +9,6 @@
 
 #include "screen.h"
 #include "keyboard.h"
-#include "timer.h"
 
 int x = 34, y = 12;
 int incX = 1, incY = 1;
@@ -50,7 +49,6 @@ int main()
 
     screenInit(1);
     keyboardInit();
-    timerInit(50);
 
     printHello(x, y);
     screenUpdate();
@@ -64,25 +62,10 @@ int main()
             printKey(ch);
             screenUpdate();
         }
-
-        // Update game state (move elements, verify collision, etc)
-        if (timerTimeOver() == 1)
-        {
-            int newX = x + incX;
-            if (newX >= (MAXX -strlen("Hello World") -1) || newX <= MINX+1) incX = -incX;
-            int newY = y + incY;
-            if (newY >= MAXY-1 || newY <= MINY+1) incY = -incY;
-
-            printKey(ch);
-            printHello(newX, newY);
-
-            screenUpdate();
-        }
     }
 
     keyboardDestroy();
     screenDestroy();
-    timerDestroy();
 
     return 0;
 }
