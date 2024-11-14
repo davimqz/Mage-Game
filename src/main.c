@@ -21,7 +21,6 @@
 #define ENEMY_MOVE_INTERVAL 1000
 #define FIREBALL_MOVE_INTERVAL 100  
 
-
 // Definição do mapa ampliado
 char map[MAP_HEIGHT][MAP_WIDTH] = {
     "########################################",
