@@ -1,0 +1,8 @@
+all:
+	gcc ./src/*.c -I./include -o mage_game.out -lm
+
+run:
+	./mage_game.out
+
+clean:
+	rm mage_game.out
