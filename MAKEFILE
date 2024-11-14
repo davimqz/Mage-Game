@@ -1,8 +1,8 @@
 all:
-	gcc ./src/*.c -I./include -o Skyfall-Blitz.out -lm
+	gcc ./src/*.c -I./include -o mage_game -lm
 
 run:
-	./Skyfall-Blitz.out
+	./mage_game
 
 clean:
-	rm Skyfall-Blitz.out
+	rm mage_game
