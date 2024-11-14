@@ -11,8 +11,8 @@ Lista dos pré-requisitos necessários para rodar o jogo, como:
 
 # Instalação
 Instruções passo a passo para clonar o repositório e compilar o projeto. Por exemplo:
-- git clone https://github.com/davimqz/Skyfall-Blitz.git
-- cd Skyfall-Blitz/
+- git clone [https://github.com/davimqz/Skyfall-Blitz.git](https://github.com/davimqz/Mage-Game)
+- cd mage_game/
 - make all
 - make run
 
