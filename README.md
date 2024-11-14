@@ -1,7 +1,7 @@
-# Skyfall-Blitz
+# Mage-Game
 
 # Descrição:
-- Este é um jogo de plataforma desenvolvido em C utilizando a biblioteca 'cli-lib'. O objetivo do jogador é controlar uma plataforma e evitar círculos que caem aleatoriamente, ganhando pontos e passando para fases mais desafiadoras.
+- Este é um jogo de plataforma desenvolvido em C utilizando a biblioteca 'cli-lib'. O objetivo do jogador é controlar um mago e sobreviver o maximo de tempo possivel no mapa
 
 # Requisitos:
 Lista dos pré-requisitos necessários para rodar o jogo, como:
@@ -17,8 +17,9 @@ Instruções passo a passo para clonar o repositório e compilar o projeto. Por 
 - make run
 
 # Como Jogar:
-- Mover a Plataforma: W S A D
-- Objetivo do jogo: "Evite os círculos caindo e ganhe pontos."
+- Mover o Mago: W S A D
+- Disparar Magia: F
+- Objetivo do jogo: "Sobreviver o maximo de Tempo possivel no mapa"
 - Avançar de nível: "Alcance a quantidade de pontos necessária para passar de fase."
 
 # Estrutura do Projeto:
