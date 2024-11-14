@@ -2,11 +2,12 @@
 #include <time.h>
 #include "screen.h"
 #include "keyboard.h"
+#include <unistd.h>
 #include "menu.h"
 
 #define MAP_WIDTH 40
 #define MAP_HEIGHT 20
-#define MAX_ENEMIES 5  // Número de inimigos
+#define MAX_ENEMIES 1  // Número de inimigos
 #define MAX_FIREBALLS 5  // Número máximo de bolas de fogo
 
 // Cores para os elementos do mapa
@@ -17,6 +18,9 @@
 #define COLOR_ENEMY MAGENTA
 #define COLOR_ATTACK CYAN
 #define COLOR_FIREBALL RED
+#define ENEMY_MOVE_INTERVAL 1000
+#define FIREBALL_MOVE_INTERVAL 100  
+
 
 // Definição do mapa ampliado
 char map[MAP_HEIGHT][MAP_WIDTH] = {
@@ -61,7 +65,7 @@ typedef struct {
 } Fireball;
 
 Enemy enemies[MAX_ENEMIES] = {
-    {5, 5, 1}, {8, 2, 1}, {15, 7, 1}, {30, 15, 1}, {35, 10, 1}
+    {5, 5, 1}
 };
 
 Fireball fireballs[MAX_FIREBALLS];
@@ -104,27 +108,35 @@ void drawEnemies() {
     for (int i = 0; i < MAX_ENEMIES; i++) {
         if (enemies[i].alive) {
             screenGotoxy(enemies[i].x, enemies[i].y);
-            printf("E");
+            printf("🦹");
         }
     }
     fflush(stdout);
 }
 
+
+// Função para mover o jogador
 // Função para mover o jogador
 void movePlayer(int dx, int dy) {
     int newX = playerX + dx;
     int newY = playerY + dy;
 
+    // Verifica se o movimento é para uma posição válida
     if (map[newY][newX] != '#') {
+        // Limpa a posição antiga do mago
         screenGotoxy(playerX, playerY);
         printf(" ");
 
+        // Atualiza a posição do jogador
         playerX = newX;
         playerY = newY;
 
+        // Desenha o mago na nova posição
         PrintMago();
     }
 }
+
+
 
 // Função para verificar se uma posição está ocupada por outro inimigo
 int isOccupiedByEnemy(int x, int y) {
@@ -147,16 +159,27 @@ void moveEnemies() {
         int newX = enemies[i].x;
         int newY = enemies[i].y;
 
-        if (enemies[i].x < playerX && map[enemies[i].y][enemies[i].x + 1] != '#' && !isOccupiedByEnemy(enemies[i].x + 1, enemies[i].y)) {
-            newX++;
-        } else if (enemies[i].x > playerX && map[enemies[i].y][enemies[i].x - 1] != '#' && !isOccupiedByEnemy(enemies[i].x - 1, enemies[i].y)) {
-            newX--;
-        }
+        // Adiciona uma pequena chance de o inimigo se mover de maneira aleatória
+        if (rand() % 4 == 0) {  // 25% de chance de se mover aleatoriamente
+            int randDirection = rand() % 4;
+            switch(randDirection) {
+                case 0: if (map[newY][newX + 1] != '#' && !isOccupiedByEnemy(newX + 1, newY)) newX++; break; // direita
+                case 1: if (map[newY][newX - 1] != '#' && !isOccupiedByEnemy(newX - 1, newY)) newX--; break; // esquerda
+                case 2: if (map[newY + 1][newX] != '#' && !isOccupiedByEnemy(newX, newY + 1)) newY++; break; // abaixo
+                case 3: if (map[newY - 1][newX] != '#' && !isOccupiedByEnemy(newX, newY - 1)) newY--; break; // acima
+            }
+        } else {  // Movimento padrão em direção ao jogador
+            if (enemies[i].x < playerX && map[newY][newX + 1] != '#' && !isOccupiedByEnemy(newX + 1, newY)) {
+                newX++;
+            } else if (enemies[i].x > playerX && map[newY][newX - 1] != '#' && !isOccupiedByEnemy(newX - 1, newY)) {
+                newX--;
+            }
 
-        if (enemies[i].y < playerY && map[enemies[i].y + 1][enemies[i].x] != '#' && !isOccupiedByEnemy(enemies[i].x, enemies[i].y + 1)) {
-            newY++;
-        } else if (enemies[i].y > playerY && map[enemies[i].y - 1][enemies[i].x] != '#' && !isOccupiedByEnemy(enemies[i].x, enemies[i].y - 1)) {
-            newY--;
+            if (enemies[i].y < playerY && map[newY + 1][newX] != '#' && !isOccupiedByEnemy(newX, newY + 1)) {
+                newY++;
+            } else if (enemies[i].y > playerY && map[newY - 1][newX] != '#' && !isOccupiedByEnemy(newX, newY - 1)) {
+                newY--;
+            }
         }
 
         enemies[i].x = newX;
@@ -201,7 +224,6 @@ void playerAttack() {
     PrintMago();
     
     screenDrawMap();
-    PrintMago();
     drawEnemies();
 }
 
@@ -247,8 +269,19 @@ void createFireball() {
 }
 
 // Atualiza a posição das bolas de fogo e verifica colisões
-void updateFireballs() {
-    time_t currentTime = time(NULL);
+void updateFireballs(struct timespec *lastFireballMove) {
+    struct timespec currentTime;
+    clock_gettime(CLOCK_MONOTONIC, &currentTime);
+    long elapsed_ms = (currentTime.tv_sec - lastFireballMove->tv_sec) * 1000 +
+                      (currentTime.tv_nsec - lastFireballMove->tv_nsec) / 1000000;
+
+    if (elapsed_ms < FIREBALL_MOVE_INTERVAL) {
+        return;  // Se ainda não passou o intervalo, não move as bolas de fogo
+    }
+    
+    *lastFireballMove = currentTime;  // Atualiza o último tempo de movimento
+
+    time_t currentTimeSimple = time(NULL);
     
     for (int i = 0; i < MAX_FIREBALLS; i++) {
         if (fireballs[i].active) {
@@ -257,7 +290,7 @@ void updateFireballs() {
             printf(" ");
 
             // Verifica se a bola de fogo expirou (2 segundos)
-            if (difftime(currentTime, fireballs[i].createdAt) >= 2) {
+            if (difftime(currentTimeSimple, fireballs[i].createdAt) >= 2) {
                 fireballs[i].active = 0;
                 continue;
             }
@@ -294,20 +327,28 @@ void updateFireballs() {
             }
         }
     }
+    // Redesenha o mago na posição atual
+    PrintMago();
 }
+
+
 
 int main() {
     displayOpeningArt();
     keyboardInit();
     screenInit(0);
-    
+
     initFireballs();
-    
+
     screenDrawMap();
     PrintMago();
     drawEnemies();
 
-    time_t lastEnemyMove = time(NULL);
+    struct timespec lastEnemyMove, currentTime;
+    clock_gettime(CLOCK_MONOTONIC, &lastEnemyMove); // Inicializa o tempo de última movimentação do inimigo
+
+    struct timespec lastFireballMove;
+    clock_gettime(CLOCK_MONOTONIC, &lastFireballMove);
 
     while (1) {
         if (keyhit()) {
@@ -327,12 +368,19 @@ int main() {
             }
         }
 
-        updateFireballs();
+        updateFireballs(&lastFireballMove);
 
-        if (difftime(time(NULL), lastEnemyMove) >= 1) {
+        // Atualiza o tempo e move o inimigo se o intervalo for atingido
+        clock_gettime(CLOCK_MONOTONIC, &currentTime);
+        long elapsed_ms = (currentTime.tv_sec - lastEnemyMove.tv_sec) * 1000 +
+                          (currentTime.tv_nsec - lastEnemyMove.tv_nsec) / 1000000;
+
+        if (elapsed_ms >= ENEMY_MOVE_INTERVAL) {
             moveEnemies();
-            lastEnemyMove = time(NULL);
+            lastEnemyMove = currentTime; // Atualiza o tempo de última movimentação
         }
+
+        usleep(1000);  // Reduz uso de CPU com pausa curta (1 ms)
 
         screenGotoxy(0, MAP_HEIGHT);
         fflush(stdout);
