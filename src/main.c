@@ -1,14 +1,15 @@
-#include <stdlib.h>
 #include <time.h>
 #include "screen.h"
 #include "keyboard.h"
 #include <unistd.h>
 #include "menu.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 #define MAP_WIDTH 60   // Novo tamanho da largura do mapa
 #define MAP_HEIGHT 30  // Novo tamanho da altura do mapa
 #define MAX_ENEMIES 1  // Número de inimigos
-#define MAX_FIREBALLS 5
+#define MAX_FIREBALLS 5 // Número Maximo de Bolas de Fogo
 
 // Cores para os elementos do mapa
 #define COLOR_WALL RED
@@ -17,9 +18,12 @@
 #define COLOR_PLAYER GREEN
 #define COLOR_ENEMY MAGENTA
 #define COLOR_ATTACK CYAN
+#define COLOR_BOMB YELLOW
 #define COLOR_FIREBALL RED
 #define ENEMY_MOVE_INTERVAL 1000
 #define FIREBALL_MOVE_INTERVAL 100  
+
+int player_lives = 3;  // Número de vidas do jogador
 
 // Definição do mapa ampliado
 char map[MAP_HEIGHT][MAP_WIDTH] = {
@@ -70,24 +74,118 @@ Enemy enemies[MAX_ENEMIES] = {
 
 Fireball fireballs[MAX_FIREBALLS];
 
+
+void screenDrawMap();
+void PrintMago();
+void drawEnemies();
+void movePlayer(int dx, int dy);
+int isOccupiedByEnemy(int x, int y);
+void moveEnemies();
+void showAttackFeedback();
+void playerAttack();
+void createFireball();
+void initFireballs();
+void updateFireballs(struct timespec *lastFireballMove);
+void placeBombs(int num_bombs);
+void check_bomb_collision(int player_x, int player_y);
+void player_move(int new_x, int new_y);
+void refreshScreen();
+
+
+int main() {
+    displayOpeningArt();
+    keyboardInit();
+    screenInit(0);
+
+    initFireballs();
+    placeBombs(10);
+
+    refreshScreen();
+
+    struct timespec lastEnemyMove, lastFireballMove, currentTime, lastScreenUpdate;
+    clock_gettime(CLOCK_MONOTONIC, &lastEnemyMove);
+    clock_gettime(CLOCK_MONOTONIC, &lastFireballMove);
+    clock_gettime(CLOCK_MONOTONIC, &lastScreenUpdate);
+
+    while (1) {
+        // Verifica se há uma tecla pressionada
+        if (keyhit()) {
+            char key = readch();
+            switch (key) {
+                case 'w': movePlayer(0, -1); break;
+                case 's': movePlayer(0, 1); break;
+                case 'a': movePlayer(-1, 0); break;
+                case 'd': movePlayer(1, 0); break;
+                case 'f': createFireball(); break;
+                case ' ': playerAttack(); break;
+                case 'q':
+                    keyboardDestroy();
+                    screenDestroy();
+                    return 0;
+            }
+        }
+
+        updateFireballs(&lastFireballMove);
+
+        // Verifica se o intervalo para mover inimigos foi atingido
+        clock_gettime(CLOCK_MONOTONIC, &currentTime);
+        long elapsed_ms = (currentTime.tv_sec - lastEnemyMove.tv_sec) * 1000 +
+                          (currentTime.tv_nsec - lastEnemyMove.tv_nsec) / 1000000;
+        if (elapsed_ms >= ENEMY_MOVE_INTERVAL) {
+            moveEnemies();
+            lastEnemyMove = currentTime;
+        }
+
+        // Verifica se a tela precisa ser atualizada
+        elapsed_ms = (currentTime.tv_sec - lastScreenUpdate.tv_sec) * 1000 +
+                     (currentTime.tv_nsec - lastScreenUpdate.tv_nsec) / 1000000;
+
+        if (elapsed_ms >= 100) {  // Atualiza a tela a cada 100ms
+            refreshScreen();
+            lastScreenUpdate = currentTime;
+        }
+
+        usleep(1000);  // Delay de 1ms para evitar loop excessivo
+    }
+}
+
+void refreshScreen() {
+    // Em vez de limpar a tela toda vez, apenas redesenha os elementos
+    screenDrawMap();  // Desenha o mapa
+    PrintMago();      // Desenha o jogador
+    drawEnemies();    // Desenha os inimigos
+
+    // Atualiza a tela sem a limpeza anterior
+    fflush(stdout);
+}
+
 // Função para desenhar o mapa
 void screenDrawMap() {
     for (int y = 0; y < MAP_HEIGHT; y++) {
         for (int x = 0; x < MAP_WIDTH; x++) {
-            char cell = map[y][x];
+            char cell = map[y][x];  // Declare 'cell' aqui dentro do loop
 
-            // Escolhe a cor para cada tipo de célula
             switch(cell) {
                 case '#':
-                    screenSetColor(COLOR_WALL, BLACK); break;
+                    screenSetColor(COLOR_WALL, BLACK);
+                    break;
                 case 'D':
-                    screenSetColor(COLOR_DOOR, BLACK); break;
+                    screenSetColor(COLOR_DOOR, BLACK);
+                    break;
+                case 'B':  // Desenhar bombas
+                    screenSetColor(COLOR_BOMB, BLACK);
+                    screenGotoxy(x, y);
+                    printf("💣");  // Exibir emoji da bomba
+                    screenSetColor(WHITE, BLACK);
+                    continue;  // Evita sobrescrever abaixo
                 default:
-                    screenSetColor(COLOR_FLOOR, BLACK); break;
+                    screenSetColor(COLOR_FLOOR, BLACK);
+                    break;
             }
 
+            // Aqui, o 'cell' está corretamente definido
             screenGotoxy(x, y);
-            printf("%c", cell);
+            printf("%c", cell);  // Exibe o conteúdo da célula
         }
     }
     screenSetColor(WHITE, BLACK);
@@ -114,29 +212,20 @@ void drawEnemies() {
     fflush(stdout);
 }
 
-
-// Função para mover o jogador
 // Função para mover o jogador
 void movePlayer(int dx, int dy) {
     int newX = playerX + dx;
     int newY = playerY + dy;
 
-    // Verifica se o movimento é para uma posição válida
-    if (map[newY][newX] != '#') {
-        // Limpa a posição antiga do mago
-        screenGotoxy(playerX, playerY);
-        printf(" ");
-
-        // Atualiza a posição do jogador
+    if (map[newY][newX] != '#') {  // Verifica se o destino é válido
+        map[playerY][playerX] = ' ';  // Atualiza o mapa limpando a posição antiga
         playerX = newX;
         playerY = newY;
-
-        // Desenha o mago na nova posição
-        PrintMago();
+        check_bomb_collision(playerX, playerY);  // Verifica colisão com bombas
+        map[playerY][playerX] = '@';  // Atualiza o mapa com a nova posição
+        refreshScreen();  // Redesenha tudo
     }
 }
-
-
 
 // Função para verificar se uma posição está ocupada por outro inimigo
 int isOccupiedByEnemy(int x, int y) {
@@ -154,38 +243,20 @@ void moveEnemies() {
         if (!enemies[i].alive) continue;
 
         screenGotoxy(enemies[i].x, enemies[i].y);
-        printf(" ");
+        printf(" ");  // Limpa a posição antiga
 
-        int newX = enemies[i].x;
-        int newY = enemies[i].y;
+        int dx = (playerX > enemies[i].x) ? 1 : (playerX < enemies[i].x) ? -1 : 0;
+        int dy = (playerY > enemies[i].y) ? 1 : (playerY < enemies[i].y) ? -1 : 0;
 
-        // Adiciona uma pequena chance de o inimigo se mover de maneira aleatória
-        if (rand() % 4 == 0) {  // 25% de chance de se mover aleatoriamente
-            int randDirection = rand() % 4;
-            switch(randDirection) {
-                case 0: if (map[newY][newX + 1] != '#' && !isOccupiedByEnemy(newX + 1, newY)) newX++; break; // direita
-                case 1: if (map[newY][newX - 1] != '#' && !isOccupiedByEnemy(newX - 1, newY)) newX--; break; // esquerda
-                case 2: if (map[newY + 1][newX] != '#' && !isOccupiedByEnemy(newX, newY + 1)) newY++; break; // abaixo
-                case 3: if (map[newY - 1][newX] != '#' && !isOccupiedByEnemy(newX, newY - 1)) newY--; break; // acima
-            }
-        } else {  // Movimento padrão em direção ao jogador
-            if (enemies[i].x < playerX && map[newY][newX + 1] != '#' && !isOccupiedByEnemy(newX + 1, newY)) {
-                newX++;
-            } else if (enemies[i].x > playerX && map[newY][newX - 1] != '#' && !isOccupiedByEnemy(newX - 1, newY)) {
-                newX--;
-            }
+        int newX = enemies[i].x + dx;
+        int newY = enemies[i].y + dy;
 
-            if (enemies[i].y < playerY && map[newY + 1][newX] != '#' && !isOccupiedByEnemy(newX, newY + 1)) {
-                newY++;
-            } else if (enemies[i].y > playerY && map[newY - 1][newX] != '#' && !isOccupiedByEnemy(newX, newY - 1)) {
-                newY--;
-            }
+        if (map[newY][newX] != '#' && !isOccupiedByEnemy(newX, newY)) {
+            enemies[i].x = newX;
+            enemies[i].y = newY;
         }
-
-        enemies[i].x = newX;
-        enemies[i].y = newY;
     }
-    drawEnemies();
+    drawEnemies();  // Atualiza os inimigos na tela
 }
 
 // Função para exibir feedback visual do ataque ao redor do jogador
@@ -276,113 +347,70 @@ void updateFireballs(struct timespec *lastFireballMove) {
                       (currentTime.tv_nsec - lastFireballMove->tv_nsec) / 1000000;
 
     if (elapsed_ms < FIREBALL_MOVE_INTERVAL) {
-        return;  // Se ainda não passou o intervalo, não move as bolas de fogo
+        return;
     }
-    
-    *lastFireballMove = currentTime;  // Atualiza o último tempo de movimento
+    *lastFireballMove = currentTime;
 
-    time_t currentTimeSimple = time(NULL);
-    
     for (int i = 0; i < MAX_FIREBALLS; i++) {
         if (fireballs[i].active) {
-            // Limpa a posição atual da bola de fogo
             screenGotoxy(fireballs[i].x, fireballs[i].y);
-            printf(" ");
+            printf(" ");  // Limpa a posição anterior
 
-            // Verifica se a bola de fogo expirou (2 segundos)
-            if (difftime(currentTimeSimple, fireballs[i].createdAt) >= 2) {
-                fireballs[i].active = 0;
-                continue;
-            }
-
-            // Calcula a nova posição
             int newX = fireballs[i].x + fireballs[i].direction;
-
-            // Verifica colisão com parede
             if (map[fireballs[i].y][newX] == '#') {
-                fireballs[i].active = 0;
+                fireballs[i].active = 0;  // Colidiu com uma parede
                 continue;
             }
 
-            // Verifica colisão com inimigos
-            int hitEnemy = 0;
             for (int j = 0; j < MAX_ENEMIES; j++) {
                 if (enemies[j].alive && enemies[j].x == newX && enemies[j].y == fireballs[i].y) {
-                    enemies[j].alive = 0;
+                    enemies[j].alive = 0;  // Inimigo eliminado
                     screenGotoxy(enemies[j].x, enemies[j].y);
                     printf(" ");
                     fireballs[i].active = 0;
-                    hitEnemy = 1;
                     break;
                 }
             }
 
-            // Se não houve colisão, move a bola de fogo
-            if (fireballs[i].active && !hitEnemy) {
+            if (fireballs[i].active) {  // Move a bola de fogo
                 fireballs[i].x = newX;
                 screenSetColor(COLOR_FIREBALL, BLACK);
                 screenGotoxy(fireballs[i].x, fireballs[i].y);
                 printf("🔥");
-                screenSetColor(WHITE, BLACK);
             }
         }
     }
-    // Redesenha o mago na posição atual
-    PrintMago();
+    fflush(stdout);
 }
 
+// Função para posicionar bombas aleatoriamente no mapa
+void placeBombs(int num_bombs) {
+    srand(time(NULL));
+    for (int i = 0; i < num_bombs; i++) {
+        int x, y;
+        do {
+            x = rand() % MAP_WIDTH;
+            y = rand() % MAP_HEIGHT;
+        } while (map[y][x] != ' ');  // Garantir que não sobrescreva paredes, inimigos ou o jogador
 
-
-int main() {
-    displayOpeningArt();
-    keyboardInit();
-    screenInit(0);
-
-    initFireballs();
-
-    screenDrawMap();
-    PrintMago();
-    drawEnemies();
-
-    struct timespec lastEnemyMove, currentTime;
-    clock_gettime(CLOCK_MONOTONIC, &lastEnemyMove); // Inicializa o tempo de última movimentação do inimigo
-
-    struct timespec lastFireballMove;
-    clock_gettime(CLOCK_MONOTONIC, &lastFireballMove);
-
-    while (1) {
-        if (keyhit()) {
-            char key = readch();
-
-            switch (key) {
-                case 'w': movePlayer(0, -1); break;
-                case 's': movePlayer(0, 1); break;
-                case 'a': movePlayer(-1, 0); break;
-                case 'd': movePlayer(1, 0); break;
-                case 'f': createFireball(); break;
-                case ' ': playerAttack(); break;
-                case 'q':
-                    keyboardDestroy();
-                    screenDestroy();
-                    return 0;
-            }
-        }
-
-        updateFireballs(&lastFireballMove);
-
-        // Atualiza o tempo e move o inimigo se o intervalo for atingido
-        clock_gettime(CLOCK_MONOTONIC, &currentTime);
-        long elapsed_ms = (currentTime.tv_sec - lastEnemyMove.tv_sec) * 1000 +
-                          (currentTime.tv_nsec - lastEnemyMove.tv_nsec) / 1000000;
-
-        if (elapsed_ms >= ENEMY_MOVE_INTERVAL) {
-            moveEnemies();
-            lastEnemyMove = currentTime; // Atualiza o tempo de última movimentação
-        }
-
-        usleep(1000);  // Reduz uso de CPU com pausa curta (1 ms)
-
-        screenGotoxy(0, MAP_HEIGHT);
-        fflush(stdout);
+        map[y][x] = 'B';  // Representação interna da bomba no mapa
     }
+}
+
+// Função para verificar colisão com bombas
+void check_bomb_collision(int x, int y) {
+    if (map[y][x] == 'B') {
+        player_lives--;
+        printf("Você pisou em uma bomba! Vidas restantes: %d\n", player_lives);
+        map[y][x] = ' ';  // Remove a bomba do mapa
+        if (player_lives <= 0) {
+            printf("Game Over!\n");
+            exit(0);  // Termina o jogo
+        }
+    }
+}
+
+void player_move(int new_x, int new_y) {
+    check_bomb_collision(new_x, new_y);
+    movePlayer(new_x - playerX, new_y - playerY);
 }
