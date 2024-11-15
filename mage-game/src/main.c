@@ -47,8 +47,8 @@ char map[MAP_HEIGHT][MAP_WIDTH] = {
 
 
 // Posição inicial do jogador
-int playerX = 1;
-int playerY = 1;
+int playerX = 30;
+int playerY = 10;
 
 // Estrutura para os inimigos
 typedef struct {
