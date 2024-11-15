@@ -90,6 +90,7 @@ void placeBombs(int num_bombs);
 void check_bomb_collision(int player_x, int player_y);
 void player_move(int new_x, int new_y);
 void refreshScreen();
+void drawPlayerLives();
 
 
 int main() {
@@ -154,6 +155,8 @@ void refreshScreen() {
     screenDrawMap();  // Desenha o mapa
     PrintMago();      // Desenha o jogador
     drawEnemies();    // Desenha os inimigos
+    drawPlayerLives();
+
 
     // Atualiza a tela sem a limpeza anterior
     fflush(stdout);
@@ -409,6 +412,13 @@ void check_bomb_collision(int x, int y) {
         }
     }
 }
+
+void drawPlayerLives() {
+    screenSetColor(WHITE, BLACK);  // Definir a cor para o texto (branco no fundo preto)
+    screenGotoxy(2, 1);  // Posiciona no canto superior esquerdo (linha 1, coluna 2)
+    printf("Vidas: %d", player_lives);  // Exibe a quantidade de vidas
+}
+
 
 void player_move(int new_x, int new_y) {
     check_bomb_collision(new_x, new_y);
