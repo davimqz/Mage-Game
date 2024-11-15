@@ -5,10 +5,10 @@
 #include <unistd.h>
 #include "menu.h"
 
-#define MAP_WIDTH 40
-#define MAP_HEIGHT 20
+#define MAP_WIDTH 60   // Novo tamanho da largura do mapa
+#define MAP_HEIGHT 30  // Novo tamanho da altura do mapa
 #define MAX_ENEMIES 1  // Número de inimigos
-#define MAX_FIREBALLS 5  // Número máximo de bolas de fogo
+#define MAX_FIREBALLS 5
 
 // Cores para os elementos do mapa
 #define COLOR_WALL RED
@@ -23,27 +23,28 @@
 
 // Definição do mapa ampliado
 char map[MAP_HEIGHT][MAP_WIDTH] = {
-    "########################################",
-    "#          D                     D    #",
-    "#                                     #",
-    "#                                     #",
-    "#         D            #              #",
-    "#                                     #",
-    "#       D                             #",
-    "#                                     #",
-    "#                                     #",
-    "#                         D           #",
-    "#                                     #",
-    "#                                     #",
-    "#   D                                 #",
-    "#                                     #",
-    "#                                     #",
-    "#                      D              #",
-    "#                                     #",
-    "#                                     #",
-    "#                                     #",
-    "########################################"
+    "############################################################",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "#                                                          #",
+    "############################################################"
 };
+
 
 // Posição inicial do jogador
 int playerX = 1;
