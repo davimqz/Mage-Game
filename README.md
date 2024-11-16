@@ -20,7 +20,7 @@ git clone https://github.com/davimqz/Mage-Game.git
 
 2º)  Entre na pasta do repositório
 ```
-cd MeowDungeon/
+cd mage_game/
 ```
 
 3º)  Compile os arquivos
